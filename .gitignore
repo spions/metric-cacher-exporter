@@ -1,0 +1,30 @@
+# phpstorm project files
+.idea
+.env
+.env.bak
+
+# zend studio for eclipse project files
+.buildpath
+.project
+.settings
+
+# windows thumbnail cache
+Thumbs.db
+
+# Mac DS_Store Files
+.DS_Store
+
+#
+/venv
+/data
+node_modules
+/static
+
+*.log
+npm-debug.log*
+yarn.lock
+package-lock.json
+
+
+#
+__pycache__/

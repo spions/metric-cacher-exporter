@@ -1,0 +1,70 @@
+name: Release Helm Chart
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - '[0-9]*'
+
+# Defines two custom environment variables for the workflow. Used for the Container registry domain, and a name for the Docker image that this workflow builds.
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  REPO_OWNER: ${{github.repository_owner}}
+
+# There is a single job in this workflow. It's configured to run on the latest available version of Ubuntu.
+jobs:
+  build-and-push-helm-chart:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: lowercase github.repository_owner
+        run: |
+          echo "REPO_OWNER=`echo ${{github.repository_owner}} | tr '[:upper:]' '[:lower:]'`" >>${GITHUB_ENV}
+
+      # Sync Helm chart version with release version (1-1 versioning)
+      - name: Calculate chart and app versions
+        id: chart_version
+        shell: bash
+        run: |
+          # If it's a tag push, github.ref_name will contain the tag (e.g., v1.0.0 or 1.0.0)
+          # We might want to strip the 'v' prefix if it exists, as Helm charts usually don't use it in version
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          echo "version=${VERSION}" | tee -a $GITHUB_OUTPUT
+          echo "app_version=${VERSION}" | tee -a $GITHUB_OUTPUT
+
+      - name: Lint helm chart
+        run: helm lint deploy/charts/metric-cacher-exporter-helm
+
+      - uses: ./.github/actions/helm-oci-chart-releaser
+        with:
+          name: metric-cacher-exporter-helm
+          repository: ${{ env.REPO_OWNER }}
+          tag: ${{ steps.chart_version.outputs.version }}
+          app_version: ${{ steps.chart_version.outputs.app_version }}
+          path: deploy/charts/metric-cacher-exporter-helm
+          registry: ${{ env.REGISTRY }}
+          registry_username: ${{ github.actor }}
+          registry_password: ${{ secrets.GITHUB_TOKEN }}
+          update_dependencies: true
+
+      - name: Upload Chart to Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: metric-cacher-exporter-helm-${{ steps.chart_version.outputs.version }}.tgz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
