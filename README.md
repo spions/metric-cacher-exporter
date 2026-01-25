@@ -80,7 +80,7 @@ spec:
   scrape_interval: 60s
   params:
     cacheTTL: 
-      - "45"
+      - "55"
   staticConfigs:
     - targets: ["my-service:9090"]
   relabelConfigs:
