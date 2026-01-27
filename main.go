@@ -102,14 +102,19 @@ func main() {
 	logger.Info("Build context", "build_context", version.BuildContext())
 
 	rdb = redis.NewClient(&redis.Options{
-		Addr:     *redisAddr,
-		Password: *redisPassword,
-		DB:       *redisDB,
+		Addr:            *redisAddr,
+		Password:        *redisPassword,
+		DB:              *redisDB,
+		MaxRetries:      0,                      // Do not retry on connection failure
+		MinRetryBackoff: 100 * time.Millisecond, // Min backoff between retries
+		MaxRetryBackoff: 500 * time.Millisecond, // Max backoff between retries
+		DialTimeout:     2 * time.Second,        // Timeout for establishing new connections
+		ReadTimeout:     2 * time.Second,        // Timeout for socket reads
+		WriteTimeout:    2 * time.Second,        // Timeout for socket writes
 	})
 
 	// Check connection
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
@@ -314,30 +319,32 @@ func livenessHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func readinessHandler(w http.ResponseWriter, r *http.Request, logger *slog.Logger) {
-	start := time.Now()
+	// If Redis client is not initialized (although it's always created in main)
+	if rdb == nil {
+		logger.Warn("[Readiness] Redis client is nil")
+		writeReadinessResponse(w, "degraded", "down", "redis client is nil", 0)
+		return
+	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	start := time.Now()
+	// Use a slightly shorter timeout than the Readiness Probe (usually 1-2s)
+	ctx, cancel := context.WithTimeout(r.Context(), 1500*time.Millisecond)
 	defer cancel()
 
-	// Выполняем проверку
+	// Perform the check
 	err := rdb.Ping(ctx).Err()
 	latency := time.Since(start).Milliseconds()
 
-	// По умолчанию считаем, что всё хорошо
-	status := "ok"
-	redisStatus := "up"
-	redisError := ""
-
-	// Если Redis недоступен
 	if err != nil {
 		logger.Warn("[Readiness] Redis check failed (non-critical)", "error", err)
-
-		// Меняем внутренние статусы, но НЕ меняем HTTP Code
-		status = "degraded" // "деградирован" — сервис работает, но не в полную силу
-		redisStatus = "down"
-		redisError = err.Error()
+		writeReadinessResponse(w, "degraded", "down", err.Error(), latency)
+		return
 	}
 
+	writeReadinessResponse(w, "ok", "up", "", latency)
+}
+
+func writeReadinessResponse(w http.ResponseWriter, status, redisStatus, redisError string, latency int64) {
 	response := HealthResponse{
 		Status: status,
 		Services: map[string]Stats{
@@ -350,10 +357,10 @@ func readinessHandler(w http.ResponseWriter, r *http.Request, logger *slog.Logge
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	// Всегда возвращаем 200 OK, чтобы балансировщик (k8s/nginx) не снимал трафик
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		logger.Error("Error encoding response", "error", err)
+		// In case of encoding error, we can no longer do anything with ResponseWriter,
+		// as WriteHeader(200) has already been called.
 	}
 }
 
