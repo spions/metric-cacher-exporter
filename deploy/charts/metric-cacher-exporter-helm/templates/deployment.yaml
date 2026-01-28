@@ -35,19 +35,16 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: REDIS_ADDR
-              value: {{ .Values.config.redis.addr | quote }}
+              value: {{ printf "%s:%s" (include "metric-cacher-exporter.redis.serviceName" .) (include "metric-cacher-exporter.redis.port" .) | quote }}
             - name: REDIS_DB
               value: {{ .Values.config.redis.db | quote }}
-            {{- range $key, $value := .Values.config.env }}
-            - name: {{ $key }}
-              value: {{ $value | quote }}
-            {{- end }}
-            {{- if .Values.config.redis.existingSecret }}
+            {{- $redisSecretName := include "metric-cacher-exporter.redis.secretName" . -}}
+            {{- if $redisSecretName }}
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.config.redis.existingSecret }}
-                  key: {{ .Values.config.redis.existingSecretPasswordKey }}
+                  name: {{ $redisSecretName }}
+                  key: {{ include "metric-cacher-exporter.redis.secretPasswordKey" . }}
             {{- end }}
           {{- with .Values.config.extraArgs }}
           args:

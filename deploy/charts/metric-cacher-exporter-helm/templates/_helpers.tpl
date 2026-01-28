@@ -60,3 +60,64 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Get redis service name
+*/}}
+{{- define "metric-cacher-exporter.redis.serviceName" -}}
+{{- if .Values.redis.enabled -}}
+    {{- if and (eq .Values.redis.architecture "standalone") .Values.redis.sentinel.enabled -}}
+        {{- printf "%s-%s" .Release.Name (default "redis" .Values.redis.nameOverride | trunc 63 | trimSuffix "-") -}}
+    {{- else -}}
+        {{- printf "%s-%s-master" .Release.Name (default "redis" .Values.redis.nameOverride | trunc 63 | trimSuffix "-") -}}
+    {{- end -}}
+{{- else -}}
+    {{- .Values.config.redis.addr | default "redis-master" | splitList ":" | first -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get redis service port
+*/}}
+{{- define "metric-cacher-exporter.redis.port" -}}
+{{- if .Values.redis.enabled -}}
+    {{- if .Values.redis.sentinel.enabled -}}
+        {{- .Values.redis.sentinel.service.ports.sentinel -}}
+    {{- else -}}
+        {{- .Values.redis.master.service.ports.redis -}}
+    {{- end -}}
+{{- else -}}
+    {{- $addr := .Values.config.redis.addr | default "redis-master:6379" -}}
+    {{- if contains ":" $addr -}}
+        {{- $addr | splitList ":" | last -}}
+    {{- else -}}
+        6379
+    {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get redis secret name
+*/}}
+{{- define "metric-cacher-exporter.redis.secretName" -}}
+{{- if .Values.redis.enabled -}}
+    {{- if .Values.redis.auth.existingSecret -}}
+        {{- .Values.redis.auth.existingSecret -}}
+    {{- else -}}
+        {{- printf "%s-%s" .Release.Name (default "redis" .Values.redis.nameOverride | trunc 63 | trimSuffix "-") -}}
+    {{- end -}}
+{{- else -}}
+    {{- .Values.config.redis.existingSecret -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get redis secret password key
+*/}}
+{{- define "metric-cacher-exporter.redis.secretPasswordKey" -}}
+{{- if .Values.redis.enabled -}}
+    {{- .Values.redis.auth.existingSecretPasswordKey | default "redis-password" -}}
+{{- else -}}
+    {{- .Values.config.redis.existingSecretPasswordKey | default "redis-password" -}}
+{{- end -}}
+{{- end -}}

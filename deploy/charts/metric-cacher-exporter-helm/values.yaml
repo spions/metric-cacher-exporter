@@ -82,10 +82,23 @@ tolerations: []
 
 affinity: {}
 
+# Redis subchart configuration
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    # existingSecret: ""
+    # existingSecretPasswordKey: ""
+  master:
+    service:
+      ports:
+        redis: 6379
+
 # Application configuration
 config:
   redis:
-    addr: "redis-master:6379"
+    addr: "" # Only for external Redis (when redis.enabled=false)
     db: 0
     # password: "" # Use existingSecret for password
     existingSecret: ""
