@@ -2,8 +2,8 @@ apiVersion: v2
 name: metric-cacher-exporter-helm
 description: A Helm chart for metric-cacher-exporter
 type: application
-version: 0.0.7
-appVersion: "0.0.7"
+version: 0.0.8
+appVersion: "0.0.8"
 dependencies:
   - name: redis
     version: ">=18.0.0"
