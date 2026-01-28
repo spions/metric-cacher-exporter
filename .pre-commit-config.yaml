@@ -16,3 +16,11 @@ repos:
       rev: v0.1.23
       hooks:
         -   id: helmlint
+  -   repo: local
+      hooks:
+        -   id: update-chart-version
+            name: Update Chart.yaml version from Git tag
+            entry: ./scripts/update-chart-version.sh
+            language: script
+            pass_filenames: false
+            always_run: true
