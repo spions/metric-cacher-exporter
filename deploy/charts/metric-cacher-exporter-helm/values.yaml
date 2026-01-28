@@ -127,13 +127,10 @@ redis:
       ports:
         redis: 6379
   metrics:
-    enabled: false
+    enabled: true
     image:
       tag: latest
-    serviceMonitor:
-      enabled: false
-      interval: 60s
-      additionalLabels: {}
+
 
 # Application configuration
 config:
@@ -148,7 +145,7 @@ config:
   
 podMonitor:
   enabled: false
-  interval: 60s
+  interval: 30s
   scrapeTimeout: 30s
   honorLabels: true
   additionalLabels: {}
