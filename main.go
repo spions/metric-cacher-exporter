@@ -322,7 +322,7 @@ func readinessHandler(w http.ResponseWriter, r *http.Request, logger *slog.Logge
 	// If Redis client is not initialized (although it's always created in main)
 	if rdb == nil {
 		logger.Warn("[Readiness] Redis client is nil")
-		writeReadinessResponse(w, "degraded", "down", "redis client is nil", 0)
+		writeReadinessResponse(w, logger, "degraded", "down", "redis client is nil", 0)
 		return
 	}
 
@@ -337,14 +337,14 @@ func readinessHandler(w http.ResponseWriter, r *http.Request, logger *slog.Logge
 
 	if err != nil {
 		logger.Warn("[Readiness] Redis check failed (non-critical)", "error", err)
-		writeReadinessResponse(w, "degraded", "down", err.Error(), latency)
+		writeReadinessResponse(w, logger, "degraded", "down", err.Error(), latency)
 		return
 	}
 
-	writeReadinessResponse(w, "ok", "up", "", latency)
+	writeReadinessResponse(w, logger, "ok", "up", "", latency)
 }
 
-func writeReadinessResponse(w http.ResponseWriter, status, redisStatus, redisError string, latency int64) {
+func writeReadinessResponse(w http.ResponseWriter, logger *slog.Logger, status, redisStatus, redisError string, latency int64) {
 	response := HealthResponse{
 		Status: status,
 		Services: map[string]Stats{
@@ -361,6 +361,7 @@ func writeReadinessResponse(w http.ResponseWriter, status, redisStatus, redisErr
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		// In case of encoding error, we can no longer do anything with ResponseWriter,
 		// as WriteHeader(200) has already been called.
+		logger.Error("failed to encode readiness response", "error", err)
 	}
 }
 
