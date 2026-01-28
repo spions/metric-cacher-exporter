@@ -127,7 +127,9 @@ redis:
       ports:
         redis: 6379
   metrics:
-    enabled: true
+    enabled: false
+    image:
+      tag: latest
     serviceMonitor:
       enabled: false
       interval: 60s
