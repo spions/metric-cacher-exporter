@@ -129,7 +129,7 @@ redis:
   metrics:
     enabled: true
     serviceMonitor:
-      enabled: true
+      enabled: false
       interval: 60s
       additionalLabels: {}
 
