@@ -12,7 +12,7 @@ image:
   tag: ""
 
 imagePullSecrets: []
-nameOverride: ""
+nameOverride: "metric-cacher-exporter"
 fullnameOverride: ""
 
 serviceAccount:
