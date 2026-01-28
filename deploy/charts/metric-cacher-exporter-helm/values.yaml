@@ -137,3 +137,13 @@ config:
     existingSecretPasswordKey: "redis-password"
   env: {}
   extraArgs: []
+  
+podMonitor:
+  enabled: false
+  interval: 60s
+  scrapeTimeout: 30s
+  honorLabels: true
+  additionalLabels: {}
+  namespaceSelector: {}
+  #   matchNames:
+  #     - metric-cacher-exporter

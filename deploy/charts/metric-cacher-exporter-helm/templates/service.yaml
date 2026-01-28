@@ -10,6 +10,10 @@ spec:
     - port: {{ .Values.service.port }}
       targetPort: http
       protocol: TCP
+      name: metrics
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
       name: http
   selector:
     {{- include "metric-cacher-exporter.selectorLabels" . | nindent 4 }}
