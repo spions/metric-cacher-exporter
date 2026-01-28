@@ -20,7 +20,7 @@ else
 fi
 
 NEW_VERSION=$(increment_version $CURRENT_VERSION)
-NEW_TAG="v$NEW_VERSION"
+NEW_TAG="$NEW_VERSION"
 
 echo "Текущая версия: $CURRENT_VERSION"
 echo "Новая версия: $NEW_VERSION ($NEW_TAG)"
