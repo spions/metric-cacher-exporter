@@ -117,7 +117,8 @@ redis:
   enabled: true
   architecture: standalone
   image:
-    tag: latest
+    repository: bitnamilegacy/redis
+    tag: 8.2.1-debian-12-r0
   auth:
     enabled: true
     # existingSecret: ""
@@ -128,8 +129,11 @@ redis:
         redis: 6379
   metrics:
     enabled: true
+    podMonitor:
+      enabled: false
     image:
-      tag: latest
+      repository: bitnamilegacy/redis-exporter
+      tag: 1.76.0-debian-12-r0
 
 
 # Application configuration

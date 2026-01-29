@@ -32,42 +32,4 @@ spec:
   selector:
     matchLabels:
       {{- include "metric-cacher-exporter.selectorLabels" . | nindent 6 }}
----
-{{- if and .Values.redis.enabled .Values.redis.metrics.enabled }}
-apiVersion: monitoring.coreos.com/v1
-kind: PodMonitor
-metadata:
-  name: {{ include "metric-cacher-exporter.fullname" . }}-redis
-  {{- if .Values.podMonitor.namespace }}
-  namespace: {{ .Values.podMonitor.namespace }}
-  {{- end }}
-  labels:
-    {{- include "metric-cacher-exporter.labels" . | nindent 4 }}
-    {{- with .Values.podMonitor.additionalLabels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-spec:
-  {{- with .Values.podMonitor.namespaceSelector }}
-  namespaceSelector:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-  podMetricsEndpoints:
-    - port: metrics
-      {{- with .Values.podMonitor.interval }}
-      interval: {{ . }}
-      {{- end }}
-      {{- with .Values.podMonitor.scrapeTimeout }}
-      scrapeTimeout: {{ . }}
-      {{- end }}
-      {{- with .Values.podMonitor.honorLabels }}
-      honorLabels: {{ . }}
-      {{- end }}
-      path: /metrics
-      scheme: http
-  selector:
-    matchLabels:
-      app.kubernetes.io/instance: {{ .Release.Name }}
-      app.kubernetes.io/name: redis
-      app.kubernetes.io/component: master
-{{- end }}
 {{- end }}
