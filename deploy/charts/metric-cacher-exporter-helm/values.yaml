@@ -156,3 +156,13 @@ podMonitor:
   namespaceSelector: {}
   #   matchNames:
   #     - metric-cacher-exporter
+
+# An additional manifests in raw format
+extraManifests: []
+  # - apiVersion: v1
+  #   kind: ConfigMap
+  #   metadata:
+  #   labels:
+  #     name: bot-extra
+  #   data:
+  #     extra-data: "value"
