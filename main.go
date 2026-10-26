@@ -244,10 +244,17 @@ func fetchFromRedis(w http.ResponseWriter, r *http.Request, cacheTTL int, logger
 		// --- CASE 3: REDIS ERROR (Redis is down or slow) ---
 		logger.Error("Redis error during GET", "err", err, "key", cacheKey)
 		cacheErrors.WithLabelValues(r.URL.Host).Inc()
-		httpRequestsTotal.WithLabelValues(r.URL.Host, strconv.Itoa(http.StatusOK), "BYPASS").Inc()
-		cacheErrors.WithLabelValues(r.URL.Host).Inc()
 
-		data, _ := fetchFromUpstream(ctx, r, cacheKey, ttlDuration, logger)
+		data, err := fetchFromUpstream(ctx, r, cacheKey, ttlDuration, logger)
+		if err != nil {
+			// Report upstream failure as 502 instead of an empty 200,
+			// otherwise scrapers see a successful scrape with no samples.
+			logger.Warn("[Upstream] Error", "error", err)
+			httpRequestsTotal.WithLabelValues(r.URL.Host, strconv.Itoa(http.StatusBadGateway), "BYPASS").Inc()
+			http.Error(w, "[Upstream] Error", http.StatusBadGateway)
+			return
+		}
+		httpRequestsTotal.WithLabelValues(r.URL.Host, strconv.Itoa(http.StatusOK), "BYPASS").Inc()
 		writeResponse(w, data, "MISS")
 	}
 

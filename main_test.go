@@ -453,3 +453,62 @@ func TestRootHandler(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 }
+
+func TestMetricsHandler_RedisError_UpstreamError(t *testing.T) {
+	mockRedis := new(MockRedisClient)
+	rdb = mockRedis
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte("Upstream error"))
+	}))
+	defer ts.Close()
+
+	targetURL := ts.URL + "/monitoring/v2/prometheusMetrics?folderId=test-folder&service=test-service"
+	cacheKey := getCacheKey(targetURL)
+
+	// Redis is unavailable: GET fails with a non-Nil error
+	mockRedis.On("Get", mock.Anything, cacheKey).Return("", fmt.Errorf("dial tcp: connection refused"))
+
+	req := httptest.NewRequest("GET", "/monitoring/v2/prometheusMetrics?target="+ts.URL+"&folderId=test-folder&service=test-service", nil)
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+
+	rootHandler(w, req)
+
+	// Upstream failure must not be hidden behind an empty 200
+	assert.Equal(t, http.StatusBadGateway, w.Code)
+	assert.Contains(t, w.Body.String(), "[Upstream] Error")
+
+	mockRedis.AssertExpectations(t)
+}
+
+func TestMetricsHandler_RedisError_UpstreamSuccess(t *testing.T) {
+	mockRedis := new(MockRedisClient)
+	rdb = mockRedis
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("test_metric 42\n"))
+	}))
+	defer ts.Close()
+
+	targetURL := ts.URL + "/monitoring/v2/prometheusMetrics?folderId=test-folder&service=test-service"
+	cacheKey := getCacheKey(targetURL)
+
+	mockRedis.On("Get", mock.Anything, cacheKey).Return("", fmt.Errorf("dial tcp: connection refused"))
+	// Saving to cache fails as well, the response must still be served
+	mockRedis.On("Set", mock.Anything, cacheKey, mock.Anything, 60*time.Second).Return(fmt.Errorf("dial tcp: connection refused"))
+
+	req := httptest.NewRequest("GET", "/monitoring/v2/prometheusMetrics?target="+ts.URL+"&folderId=test-folder&service=test-service", nil)
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+
+	rootHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "test_metric 42")
+	assert.Equal(t, "MISS", w.Header().Get("X-Cache"))
+
+	mockRedis.AssertExpectations(t)
+}
