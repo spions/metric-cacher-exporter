@@ -1,0 +1,14 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - misspell
+    - unconvert
+  exclusions:
+    presets:
+      - std-error-handling
