@@ -1,0 +1,19 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - misspell
+    - unconvert
+  exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      # false positive: the body is closed in a deferred func literal, which bodyclose does not follow
+      - path: ^main\.go$
+        linters: [bodyclose]
+        text: "response body must be closed"
