@@ -28,5 +28,5 @@ jobs:
           check-latest: true
       - uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.8.0   # keep in sync with .pre-commit-config.yaml
+          version: v2.15.0  # keep in sync with .pre-commit-config.yaml
           args: --verbose
