@@ -26,7 +26,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@v5
         with:
-          go-version: 1.25.x
+          go-version: 1.26.x
           check-latest: true
           cache: true
       - run: GO_ENV=test go test -race -count=1 ./...
@@ -127,7 +127,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@v5
         with:
-          go-version: 1.25.x
+          go-version: 1.26.x
           check-latest: true
           cache: true
       - name: Build

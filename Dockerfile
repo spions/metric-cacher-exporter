@@ -1,6 +1,6 @@
 # The compiler always runs natively on the build host ($BUILDPLATFORM) and cross-compiles for
 # $TARGETARCH, so multi-arch images do not pay for emulating a Go build under QEMU.
-FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
