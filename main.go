@@ -189,9 +189,14 @@ func fetchFromRedis(w http.ResponseWriter, r *http.Request, cacheTTL int, logger
 			isLocked, _ := rdb.SetNX(ctx, lockKey, "processing", ttlDuration).Result()
 
 			if isLocked {
-				// Current worker became leader
-				data, err := fetchFromUpstream(ctx, r, cacheKey, ttlDuration, logger)
-				rdb.Del(ctx, lockKey) // Remove lock after completion
+				// Current worker became leader.
+				// Detach from the client's context: if the scraper gives up (scrape_timeout)
+				// the upstream fetch must still finish, populate the cache and release the
+				// lock, otherwise the lock stays until TTL and all followers get 504.
+				// The upstream call is still bounded by http.Client.Timeout.
+				leaderCtx := context.WithoutCancel(ctx)
+				data, err := fetchFromUpstream(leaderCtx, r, cacheKey, ttlDuration, logger)
+				rdb.Del(leaderCtx, lockKey) // Remove lock after completion
 
 				if err != nil {
 					logger.Warn("[Upstream] Error", "error", err)
