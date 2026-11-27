@@ -512,3 +512,53 @@ func TestMetricsHandler_RedisError_UpstreamSuccess(t *testing.T) {
 
 	mockRedis.AssertExpectations(t)
 }
+
+// If the client aborts (scrape_timeout), the leader must still finish the upstream
+// fetch, write the cache and release the lock.
+func TestMetricsHandler_ClientCancel_LeaderStillCachesAndUnlocks(t *testing.T) {
+	mockRedis := new(MockRedisClient)
+	rdb = mockRedis
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(300 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("slow_metric 1\n"))
+	}))
+	defer ts.Close()
+
+	targetURL := ts.URL + "/monitoring/v2/prometheusMetrics?folderId=test-folder&service=test-service"
+	cacheKey := getCacheKey(targetURL)
+	lockKey := "lock:" + cacheKey
+
+	var setCtxErr, delCtxErr error
+	done := make(chan struct{})
+
+	mockRedis.On("Get", mock.Anything, cacheKey).Return("", redis.Nil)
+	mockRedis.On("SetNX", mock.Anything, lockKey, "processing", 60*time.Second).Return(true, nil)
+	mockRedis.On("Set", mock.Anything, cacheKey, mock.Anything, 60*time.Second).
+		Run(func(args mock.Arguments) { setCtxErr = args.Get(0).(context.Context).Err() }).Return(nil)
+	mockRedis.On("Del", mock.Anything, []string{lockKey}).
+		Run(func(args mock.Arguments) {
+			delCtxErr = args.Get(0).(context.Context).Err()
+			close(done)
+		}).Return(1, nil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	req := httptest.NewRequest("GET", "/monitoring/v2/prometheusMetrics?target="+ts.URL+"&folderId=test-folder&service=test-service", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel() // client gave up while upstream is still working
+	}()
+	rootHandler(w, req)
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("lock was not released")
+	}
+	assert.NoError(t, setCtxErr, "cache Set must not use a cancelled context")
+	assert.NoError(t, delCtxErr, "lock Del must not use a cancelled context")
+	mockRedis.AssertExpectations(t)
+}
